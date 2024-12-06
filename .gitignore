@@ -1,0 +1,15 @@
+node_modules/
+build/
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.json
+coverage/
+*.pem
+*.tmp
+*.swp
