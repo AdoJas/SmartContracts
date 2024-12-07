@@ -40,6 +40,7 @@
         
         <!-- Single Ticket Purchase -->
         <button class="btn btn-success mb-3" onclick="purchaseTicket()">Buy One Ticket (0.01 ETH)</button>
+        <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
         
         <hr class="my-4">
 
@@ -49,22 +50,20 @@
             <input type="number" id="ticket-count" class="form-control" min="1" placeholder="Enter number of tickets">
         </div>
         <button class="btn btn-success mt-2" onclick="purchaseMultipleTickets()">Buy Multiple Tickets</button>
-        
-        <!-- Back Button -->
-        <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
     </div>
 
     <!-- Profile -->
     <div id="profile" class="container mt-5" style="display: none;">
         <h1>Your Tickets</h1>
-        <ul id="tickets-list" class="list-group"></ul>
         <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
+        <ul id="tickets-list" class="list-group"></ul>
     </div>
 
     <!-- Scratch Tickets -->
     <div id="scratch-tickets" class="container mt-5" style="display: none;">
         <h1 class="text-center">Scratch Tickets</h1>
         <div id="ticket-cards" class="row"></div>
+        <canvas id="scratch-area" width="300" height="150" style="display: none; border: 1px solid black;"></canvas>
         <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
     </div>
     

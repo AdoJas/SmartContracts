@@ -125,6 +125,20 @@ const lotteryABI = [
     },
     {
       "inputs": [],
+      "name": "totalPrizePool",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [],
       "name": "purchaseTicket",
       "outputs": [],
       "stateMutability": "payable",
@@ -171,25 +185,23 @@ const lotteryABI = [
       "type": "function"
     },
     {
-      "inputs": [
+      "inputs": [],
+      "name": "getTotalTickets",
+      "outputs": [
         {
           "internalType": "uint256",
-          "name": "ticketId",
+          "name": "",
           "type": "uint256"
         }
       ],
-      "name": "getTicketDetails",
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [],
+      "name": "getTotalPrizePool",
       "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "enum ScratchLottery.TicketStatus",
-          "name": "",
-          "type": "uint8"
-        },
         {
           "internalType": "uint256",
           "name": "",
@@ -202,7 +214,7 @@ const lotteryABI = [
     }
   ];
 
-const contractAddress = "0x88B6C098DB0a170AACb7e1a6159062536FFe3aC0";
+const contractAddress = "0x88162a63D45d9304f2d69c0124d0668d9D856774";
 
 async function initWeb3() {
     if (window.ethereum) {
@@ -258,20 +270,27 @@ async function purchaseTicket() {
 }
 
 async function purchaseMultipleTickets() {
-    const ticketCount = document.getElementById("ticket-count").value;
+    const numberOfTickets = parseInt(document.getElementById("ticket-count").value, 10);
+    if (numberOfTickets <= 0) {
+        alert("Please enter a valid number of tickets.");
+        return;
+    }
+
     const accounts = await web3.eth.getAccounts();
-    const totalCost = web3.utils.toWei((0.01 * ticketCount).toString(), "ether");
+    const totalCost = web3.utils.toWei((numberOfTickets * 0.01).toString(), "ether");
 
     try {
-        await lotteryContract.methods.purchaseMultipleTickets(ticketCount).send({
+        await lotteryContract.methods.purchaseMultipleTickets(numberOfTickets).send({
             from: accounts[0],
             value: totalCost,
         });
-        alert(`Successfully purchased ${ticketCount} tickets!`);
+        alert(`${numberOfTickets} tickets purchased successfully!`);
     } catch (error) {
-        alert("Error purchasing tickets: " + error.message);
+        console.error("Error purchasing tickets:", error);
+        alert("Error purchasing tickets. Check console for details.");
     }
 }
+
 
 
 async function loadTickets() {
@@ -409,6 +428,47 @@ function loadMainMenu() {
 function generateSecureClientSeed() {
     return crypto.getRandomValues(new Uint32Array(4))
         .reduce((acc, val) => acc + val.toString(36), '');
+}
+
+let scratchCanvas, ctx, isDrawing, cleared;
+
+function initScratchArea(ticketId, prize) {
+    scratchCanvas = document.getElementById("scratch-area");
+    ctx = scratchCanvas.getContext("2d");
+    isDrawing = false;
+    cleared = false;
+    scratchCanvas.style.display = "block";
+    ctx.fillStyle = "#808080";
+    ctx.fillRect(0, 0, scratchCanvas.width, scratchCanvas.height);
+
+    ctx.globalCompositeOperation = "destination-out";
+    scratchCanvas.onmousedown = () => (isDrawing = true);
+    scratchCanvas.onmouseup = () => (isDrawing = false);
+    scratchCanvas.onmousemove = scratch;
+
+    function scratch(e) {
+        if (!isDrawing) return;
+        const rect = scratchCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (!cleared && isMostlyCleared()) {
+            cleared = true;
+            alert(`Ticket ID ${ticketId} scratched! Prize: ${prize} ETH`);
+        }
+    }
+
+    function isMostlyCleared() {
+        const imageData = ctx.getImageData(0, 0, scratchCanvas.width, scratchCanvas.height).data;
+        let clearedPixels = 0;
+        for (let i = 3; i < imageData.length; i += 4) {
+            if (imageData[i] === 0) clearedPixels++;
+        }
+        return clearedPixels / (scratchCanvas.width * scratchCanvas.height) > 0.7;
+    }
 }
 
 window.addEventListener("load", initWeb3);

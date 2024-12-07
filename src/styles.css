@@ -30,10 +30,6 @@
     transition: 0.3s;
 }
 
-.ticket-card:hover .scratch-button {
-    opacity: 1;
-}
-
 .ticket-info {
     opacity: 1;
     transition: 0.3s;
@@ -41,4 +37,8 @@
 
 .ticket-card:hover .ticket-info {
     opacity: 0.3;
+}
+
+.ticket-card:hover .scratch-button {
+    opacity: 1;
 }
