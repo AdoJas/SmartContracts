@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.7;
 
 contract ScratchLottery {
@@ -17,6 +18,7 @@ contract ScratchLottery {
 
     event TicketPurchased(address indexed buyer, uint256 indexed ticketId);
     event TicketScratched(address indexed owner, uint256 indexed ticketId, uint256 prize);
+    event DebugRandomness(uint256 ticketId, uint256 randomness, uint256 outcome);
 
     constructor() {
         owner = msg.sender;
@@ -52,12 +54,15 @@ contract ScratchLottery {
         emit TicketPurchased(msg.sender, ticketCounter);
     }
 
-    function scratchTicket(uint256 ticketId) public ticketOwner(ticketId) unscratched(ticketId) {
+    function scratchTicket(uint256 ticketId, string memory clientSeed) public ticketOwner(ticketId) unscratched(ticketId) {
         uint256 randomness = uint256(keccak256(abi.encodePacked(
             block.timestamp,
-            block.difficulty,
+            blockhash(block.number - 1),
+            block.coinbase,
             msg.sender,
-            ticketId
+            gasleft(),
+            ticketId,
+            clientSeed
         )));
 
         uint256 prize = calculatePrize(randomness);
@@ -66,15 +71,17 @@ contract ScratchLottery {
         tickets[ticketId].prize = prize;
 
         if (prize > 0) {
+            require(totalPrizePool >= prize, "Insufficient prize pool");
             totalPrizePool -= prize;
-            payable(tickets[ticketId].owner).transfer(prize);
+            payable(msg.sender).transfer(prize);
         }
 
+        emit DebugRandomness(ticketId, randomness, randomness % 100);
         emit TicketScratched(msg.sender, ticketId, prize);
     }
 
     function calculatePrize(uint256 randomness) internal pure returns (uint256) {
-        uint256 outcome = randomness % 100;
+        uint256 outcome = randomness % 100; // Generate an outcome between 0-99
         if (outcome < 5) {
             return 1 ether; // 5% chance for a jackpot
         } else if (outcome < 35) {
@@ -89,5 +96,10 @@ contract ScratchLottery {
         uint256 balance = address(this).balance;
         require(balance > 0, "No Ether to withdraw");
         payable(owner).transfer(balance);
+    }
+
+    function getTicketDetails(uint256 ticketId) public view returns (address, TicketStatus, uint256) {
+        Ticket memory ticket = tickets[ticketId];
+        return (ticket.owner, ticket.status, ticket.prize);
     }
 }
