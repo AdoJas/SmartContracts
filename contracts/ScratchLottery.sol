@@ -77,12 +77,12 @@ contract ScratchLottery {
         uint256 outcome = randomness % 100;
         if (outcome < 5) {
             return 1 ether; // 5% chance for a jackpot
-        } else if (outcome < 20) {
-            return 0.1 ether; // 15% chance for a medium prize
-        } else if (outcome < 50) {
-            return 0.01 ether; // 30% chance for a small prize
+        } else if (outcome < 35) {
+            return 0.1 ether; // 30% chance for a medium prize
+        } else if (outcome < 75) {
+            return 0.01 ether; // 40% chance for a small prize
         }
-        return 0; // 50% chance for no prize
+        return 0; // 25% chance for no prize
     }
 
     function withdrawEther() public onlyOwner {
