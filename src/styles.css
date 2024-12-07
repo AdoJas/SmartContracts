@@ -1,0 +1,44 @@
+.ticket-card {
+    position: relative;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+    transition: 0.3s;
+    overflow: hidden;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ticket-card:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.scratch-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: 0.3s;
+}
+
+.ticket-card:hover .scratch-button {
+    opacity: 1;
+}
+
+.ticket-info {
+    opacity: 1;
+    transition: 0.3s;
+}
+
+.ticket-card:hover .ticket-info {
+    opacity: 0.3;
+}

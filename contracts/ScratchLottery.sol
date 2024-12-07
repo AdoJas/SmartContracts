@@ -10,7 +10,7 @@ contract ScratchLottery {
     enum TicketStatus { Unscratched, Scratched }
     struct Ticket {
         address owner;
-        TicketStatus status;
+        uint8 status; // 0 = Unscratched, 1 = Scratched
         uint256 prize;
     }
 
@@ -18,7 +18,6 @@ contract ScratchLottery {
 
     event TicketPurchased(address indexed buyer, uint256 indexed ticketId);
     event TicketScratched(address indexed owner, uint256 indexed ticketId, uint256 prize);
-    event DebugRandomness(uint256 ticketId, uint256 randomness, uint256 outcome);
 
     constructor() {
         owner = msg.sender;
@@ -30,45 +29,48 @@ contract ScratchLottery {
         _;
     }
 
-    modifier ticketOwner(uint256 ticketId) {
+    modifier validTicketOwner(uint256 ticketId) {
         require(tickets[ticketId].owner == msg.sender, "You do not own this ticket");
         _;
     }
 
-    modifier unscratched(uint256 ticketId) {
-        require(tickets[ticketId].status == TicketStatus.Unscratched, "Ticket already scratched");
+    modifier validUnscratched(uint256 ticketId) {
+        require(tickets[ticketId].status == 0, "Ticket already scratched");
         _;
     }
 
-    function purchaseTicket() public payable {
+    function purchaseTicket() external payable {
         require(msg.value == ticketPrice, "Incorrect ticket price");
-        ticketCounter++;
-        tickets[ticketCounter] = Ticket({
-            owner: msg.sender,
-            status: TicketStatus.Unscratched,
-            prize: 0
-        });
-
-        totalPrizePool += msg.value;
-
-        emit TicketPurchased(msg.sender, ticketCounter);
+        _createTicket(msg.sender);
     }
 
-    function scratchTicket(uint256 ticketId, string memory clientSeed) public ticketOwner(ticketId) unscratched(ticketId) {
+    function purchaseMultipleTickets(uint256 numberOfTickets) external payable {
+        require(numberOfTickets > 0, "Must purchase at least one ticket");
+        uint256 totalCost = numberOfTickets * ticketPrice;
+        require(msg.value == totalCost, "Incorrect ETH value sent");
+
+        for (uint256 i = 0; i < numberOfTickets; i++) {
+            _createTicket(msg.sender);
+        }
+    }
+
+    function scratchTicket(uint256 ticketId, string calldata clientSeed) 
+        external 
+        validTicketOwner(ticketId) 
+        validUnscratched(ticketId) 
+    {
         uint256 randomness = uint256(keccak256(abi.encodePacked(
             block.timestamp,
             blockhash(block.number - 1),
-            block.coinbase,
-            msg.sender,
-            gasleft(),
             ticketId,
             clientSeed
         )));
 
-        uint256 prize = calculatePrize(randomness);
+        uint256 prize = _calculatePrize(randomness);
 
-        tickets[ticketId].status = TicketStatus.Scratched;
-        tickets[ticketId].prize = prize;
+        Ticket storage ticket = tickets[ticketId];
+        ticket.status = 1; // Scratched
+        ticket.prize = prize;
 
         if (prize > 0) {
             require(totalPrizePool >= prize, "Insufficient prize pool");
@@ -76,30 +78,36 @@ contract ScratchLottery {
             payable(msg.sender).transfer(prize);
         }
 
-        emit DebugRandomness(ticketId, randomness, randomness % 100);
         emit TicketScratched(msg.sender, ticketId, prize);
     }
 
-    function calculatePrize(uint256 randomness) internal pure returns (uint256) {
-        uint256 outcome = randomness % 100; // Generate an outcome between 0-99
-        if (outcome < 5) {
-            return 1 ether; // 5% chance for a jackpot
-        } else if (outcome < 35) {
-            return 0.1 ether; // 30% chance for a medium prize
-        } else if (outcome < 75) {
-            return 0.01 ether; // 40% chance for a small prize
-        }
-        return 0; // 25% chance for no prize
-    }
-
-    function withdrawEther() public onlyOwner {
+    function withdrawEther() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No Ether to withdraw");
         payable(owner).transfer(balance);
     }
 
-    function getTicketDetails(uint256 ticketId) public view returns (address, TicketStatus, uint256) {
-        Ticket memory ticket = tickets[ticketId];
-        return (ticket.owner, ticket.status, ticket.prize);
+    function getTotalTickets() external view returns (uint256) {
+        return ticketCounter;
+    }
+
+    function getTotalPrizePool() external view returns (uint256) {
+        return totalPrizePool;
+    }
+
+    function _calculatePrize(uint256 randomness) internal pure returns (uint256) {
+        uint256 outcome = randomness % 100000; // Generate outcome between 0-99,999
+        if (outcome < 1) return 5 ether;         // 0.001% chance
+        if (outcome < 11) return 0.5 ether;      // 0.01% chance
+        if (outcome < 111) return 0.05 ether;    // 0.1% chance
+        if (outcome < 2111) return 0.01 ether;   // 2% chance
+        return 0;                                // 97.889% chance for no prize
+    }
+
+    function _createTicket(address buyer) internal {
+        ticketCounter++;
+        tickets[ticketCounter] = Ticket(buyer, 0, 0); // Default: Unscratched, Prize: 0
+        totalPrizePool += ticketPrice;
+        emit TicketPurchased(buyer, ticketCounter);
     }
 }
