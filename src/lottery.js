@@ -1,13 +1,9 @@
-// lottery.js
-
 let web3;
 let lotteryContract;
 
 let ticketsData = [];
-// Replace with your actual relayer address
 const relayerAddress = "0x456F34EF88Df11A5FB3cAB282BAd8dbf1ff7E946";
 
-// Replace with your actual contract ABI
 const lotteryABI = [
   {
     "inputs": [
@@ -330,7 +326,6 @@ const lotteryABI = [
   }
 ];
 
-// Replace with your actual contract address
 const contractAddress = "0xC0ff1D219A3116ef287c983514afEDD4E9aea5bC";
 
 async function initWeb3() {
@@ -420,6 +415,7 @@ async function purchaseTicket() {
         await lotteryContract.methods.purchaseTicket().send({
             from: accounts[0],
             value: web3.utils.toWei("0.01", "ether"),
+            gas: 1000000,
         });
         alert("Ticket purchased successfully!");
         await loadTickets();
@@ -454,11 +450,117 @@ async function purchaseMultipleTickets() {
     }
 }
 
+async function withdrawPrizes() {
+  const withdrawBtn = document.getElementById('withdraw-btn');
+  
+  try {
+      withdrawBtn.disabled = true;
+      withdrawBtn.innerHTML = `
+          <div class="spinner-border spinner-border-sm me-2" role="status">
+              <span class="visually-hidden">Loading...</span>
+          </div>
+          Withdrawing...
+      `;
+
+      const userAddress = localStorage.getItem("userAddress");
+      const prizeBalance = await lotteryContract.methods.prizeBalances(userAddress).call();
+
+      if (prizeBalance === '0') {
+          showNotification('No prizes available to withdraw', 'warning');
+          return;
+      }
+
+      await lotteryContract.methods.withdrawPrizes().send({ 
+          from: userAddress,
+          gas: 300000
+      });
+
+      showNotification(`Successfully withdrawn ${web3.utils.fromWei(prizeBalance, 'ether')} ETH`, 'success');
+      
+      await updateBalance(userAddress);
+      await updatePrizeBalance();
+      
+  } catch (error) {
+      console.error('Withdrawal error:', error);
+      showNotification('Failed to withdraw prizes. Please try again.', 'error');
+  } finally {
+      withdrawBtn.disabled = false;
+      withdrawBtn.innerHTML = `
+          <i class="fas fa-money-bill-wave me-2"></i>
+          Withdraw Prizes
+      `;
+  }
+}
+
+function updateUserProfile() {
+  const userAddress = localStorage.getItem("userAddress");
+  
+  document.getElementById("user-avatar").src = `https://avatars.dicebear.com/api/identicon/${userAddress}.svg`;
+  document.getElementById("user-address").textContent = formatAddress(userAddress);
+  
+  updateBalance(userAddress);
+}
+
+async function updateBalance(address) {
+  try {
+      const balance = await web3.eth.getBalance(address);
+      const balanceInEth = web3.utils.fromWei(balance, "ether");
+      document.getElementById("user-balance").textContent = `${parseFloat(balanceInEth).toFixed(4)} ETH`;
+  } catch (error) {
+      console.error("Error fetching balance:", error);
+      document.getElementById("user-balance").textContent = "Error loading balance";
+  }
+}
+
+function formatAddress(address) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function addWithdrawButton() {
+  const profileSection = document.getElementById('profile');
+  
+  const existingWithdraw = document.querySelector('.withdraw-section');
+  if (existingWithdraw) {
+      existingWithdraw.remove();
+  }
+  
+  const withdrawSection = document.createElement('div');
+  withdrawSection.className = 'withdraw-section';
+  withdrawSection.innerHTML = `
+      <div class="card mb-4">
+          <div class="card-body">
+              <h5 class="card-title">Available Prizes</h5>
+              <p class="prize-balance mb-3">Loading...</p>
+              <button id="withdraw-btn" class="btn btn-success" onclick="withdrawPrizes()">
+                  <i class="fas fa-money-bill-wave me-2"></i>
+                  Withdraw Prizes
+              </button>
+          </div>
+      </div>
+  `;
+  
+  profileSection.insertBefore(withdrawSection, profileSection.firstChild);
+  updatePrizeBalance();
+}
+
+async function updatePrizeBalance() {
+  const prizeBalanceElement = document.querySelector('.prize-balance');
+  const userAddress = localStorage.getItem("userAddress");
+  
+  try {
+      const balance = await lotteryContract.methods.prizeBalances(userAddress).call();
+      const balanceInEth = web3.utils.fromWei(balance, 'ether');
+      prizeBalanceElement.textContent = `${balanceInEth} ETH available to withdraw`;
+  } catch (error) {
+      console.error('Error fetching prize balance:', error);
+      prizeBalanceElement.textContent = 'Error loading balance';
+  }
+}
+
 async function loadTickets() {
   const userAddress = localStorage.getItem("userAddress");
   const profileTickets = document.getElementById("profile-tickets");
   
-  // Show loading state
   profileTickets.innerHTML = `
       <div class="loading-state">
           <div class="spinner"></div>
@@ -468,7 +570,7 @@ async function loadTickets() {
 
   try {
       const ticketIds = await lotteryContract.methods.getUserTickets(userAddress).call();
-      ticketsData = []; // Reset tickets data
+      ticketsData = []; 
 
       if (ticketIds.length === 0) {
           profileTickets.innerHTML = `
@@ -484,7 +586,6 @@ async function loadTickets() {
           return;
       }
 
-      // Build tickets data array
       for (const ticketId of ticketIds) {
           const ticket = await lotteryContract.methods.tickets(ticketId).call();
           const prizeInEth = web3.utils.fromWei(ticket.prize, "ether");
@@ -493,11 +594,10 @@ async function loadTickets() {
               id: ticketId,
               status: parseInt(ticket.status),
               prize: parseFloat(prizeInEth),
-              purchaseDate: Date.now() // Using current timestamp as placeholder
+              purchaseDate: Date.now() 
           });
       }
 
-      // Create filter controls if they don't exist
       if (!document.querySelector('.filter-controls')) {
           const filterControls = document.createElement('div');
           filterControls.className = 'filter-controls';
@@ -523,10 +623,8 @@ async function loadTickets() {
           profileTickets.insertBefore(filterControls, profileTickets.firstChild);
       }
 
-      // Create tickets container
       profileTickets.innerHTML += '<div class="profile-tickets"></div>';
       
-      // Initial render
       renderTickets(ticketsData);
       setupFilters();
 
@@ -555,7 +653,6 @@ function applyFilters() {
 
   let filteredTickets = [...ticketsData];
 
-  // Apply status filter
   switch(statusFilter) {
       case 'unscratched':
           filteredTickets = filteredTickets.filter(t => t.status === 0);
@@ -571,7 +668,6 @@ function applyFilters() {
           break;
   }
 
-  // Apply sort filter
   switch(sortFilter) {
       case 'newest':
           filteredTickets.sort((a, b) => b.purchaseDate - a.purchaseDate);
@@ -723,7 +819,6 @@ function initializeScratchArea(cardElement, prizeInEth) {
   canvas.height = container.offsetHeight;
   canvas.style.display = "block";
 
-  // Fill with scratch pattern
   ctx.fillStyle = "#C0C0C0";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -760,7 +855,6 @@ function initializeScratchArea(cardElement, prizeInEth) {
   canvas.addEventListener("mouseup", () => isDrawing = false);
   canvas.addEventListener("mouseout", () => isDrawing = false);
 
-  // Touch events
   canvas.addEventListener("touchstart", (e) => {
       e.preventDefault();
       isDrawing = true;
@@ -817,11 +911,9 @@ async function handleScratch(ticketId, cardElement) {
       const updatedTicket = await lotteryContract.methods.tickets(ticketId).call();
       const prizeInEth = web3.utils.fromWei(updatedTicket.prize, "ether");
 
-      // Update status and initialize scratch area
       cardElement.querySelector(".status").textContent = "Status: Scratched";
       cardElement.querySelector(".prize-amount").textContent = prizeInEth;
       
-      // Hide button and show scratch area
       scratchButton.style.display = "none";
       initializeScratchArea(cardElement, prizeInEth);
       
@@ -851,10 +943,11 @@ function navigateTo(page) {
 
     if (page === "profile") {
         setTimeout(loadTickets, 0); 
+        addWithdrawButton();
     } else if (page === "scratch-tickets") {
         loadUnscratchedTickets();
     } else if (page === "statistics") {
-        loadStatisticsData();
+        loadStatistics();
     }
 }
 
@@ -868,7 +961,6 @@ function loadMainMenu() {
 async function loadStatistics() {
   const statsContainer = document.getElementById("statistics");
   
-  // Show loading state
   statsContainer.innerHTML = `
       <div class="loading-state">
           <div class="spinner"></div>
@@ -877,38 +969,35 @@ async function loadStatistics() {
   `;
 
   try {
-      // Fetch statistics from contract
-      const totalTickets = await lotteryContract.methods.getTotalTickets().call();
-      const prizePool = await lotteryContract.methods.getPrizePoolBalance().call();
-      const prizePoolInEth = web3.utils.fromWei(prizePool, "ether");
+      const [totalTickets, prizePoolWei, scratchedCount] = await Promise.all([
+          lotteryContract.methods.getTotalTickets().call(),
+          lotteryContract.methods.getPrizePoolBalance().call(),
+          countScratchedTickets()
+      ]);
 
-      // Calculate other stats
-      const scratchedTickets = await countScratchedTickets();
-      const totalPrizesPaid = await lotteryContract.methods.totalPrizeBalances().call();
-      const totalPrizesPaidInEth = web3.utils.fromWei(totalPrizesPaid, "ether");
-
-      // Display statistics
+      const prizePoolEth = web3.utils.fromWei(prizePoolWei, "ether");
+      
       statsContainer.innerHTML = `
           <div class="stats-grid">
               <div class="stat-card">
-                  <i class="fas fa-ticket-alt fa-2x mb-3"></i>
+                  <i class="fas fa-ticket-alt fa-2x"></i>
                   <h3>Total Tickets</h3>
                   <div class="stat-value">${totalTickets}</div>
               </div>
               <div class="stat-card">
-                  <i class="fas fa-hand-holding-usd fa-2x mb-3"></i>
+                  <i class="fas fa-coins fa-2x"></i>
                   <h3>Prize Pool</h3>
-                  <div class="stat-value">${prizePoolInEth} ETH</div>
+                  <div class="stat-value">${parseFloat(prizePoolEth).toFixed(4)} ETH</div>
               </div>
               <div class="stat-card">
-                  <i class="fas fa-check-circle fa-2x mb-3"></i>
+                  <i class="fas fa-check-circle fa-2x"></i>
                   <h3>Scratched Tickets</h3>
-                  <div class="stat-value">${scratchedTickets}</div>
+                  <div class="stat-value">${scratchedCount}</div>
               </div>
               <div class="stat-card">
-                  <i class="fas fa-coins fa-2x mb-3"></i>
-                  <h3>Total Prizes Paid</h3>
-                  <div class="stat-value">${totalPrizesPaidInEth} ETH</div>
+                  <i class="fas fa-percentage fa-2x"></i>
+                  <h3>Scratch Rate</h3>
+                  <div class="stat-value">${totalTickets > 0 ? ((scratchedCount / totalTickets) * 100).toFixed(1) : 0}%</div>
               </div>
           </div>
       `;
@@ -917,11 +1006,26 @@ async function loadStatistics() {
       console.error("Error loading statistics:", error);
       statsContainer.innerHTML = `
           <div class="error-state">
-              <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+              <i class="fas fa-exclamation-circle fa-3x"></i>
               <h3>Failed to Load Statistics</h3>
               <p>Please try again later</p>
           </div>
       `;
+  }
+}
+
+async function loadPrizePoolBalance() {
+  try {
+      const balanceWei = await lotteryContract.methods.getPrizePoolBalance().call();
+      
+      const balanceEth = web3.utils.fromWei(balanceWei, "ether");
+      
+      const formattedBalance = parseFloat(balanceEth).toFixed(4);
+      
+      return formattedBalance;
+  } catch (error) {
+      console.error("Error fetching prize pool balance:", error);
+      return "0.0000";
   }
 }
 
@@ -993,4 +1097,3 @@ async function updateWinningsCounter() {
 
 window.addEventListener("load", initWeb3);
 document.getElementById("login-btn").addEventListener("click", connectWallet);
-//document.getElementById("filter-tickets").addEventListener("change", loadTickets);

@@ -80,12 +80,22 @@
     <!-- Profile Page -->
     <div id="profile" class="container mt-5" style="display: none;">
         <h2>User Profile</h2>
-        <div id="user-profile" class="card mt-4" style="display: none;">
-            <div class="card-body d-flex align-items-center">
-                <img id="user-avatar" src="" alt="User Avatar" class="rounded-circle me-3" width="60" height="60">
-                <div>
-                    <p id="user-address" class="mb-1"></p>
-                    <p id="user-balance" class="mb-0"></p>
+        <div id="user-profile" class="user-profile-card">
+            <div class="profile-left">
+                <div class="avatar-wrapper">
+                    <img id="user-avatar" class="avatar" alt="User Avatar">
+                </div>
+            </div>
+            <div class="profile-right">
+                <div class="wallet-info">
+                    <div class="wallet-address">
+                        <span class="label">Address</span>
+                        <span id="user-address" class="value"></span>
+                    </div>
+                    <div class="wallet-balance">
+                        <span class="label">Balance</span>
+                        <span id="user-balance" class="value"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -111,7 +121,6 @@
             </div>
         </div>
         <div id="profile-tickets" class="row mt-4">
-            <!-- User tickets will be dynamically inserted here -->
         </div>
         <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
     </div>
@@ -120,7 +129,6 @@
     <div id="scratch-tickets" class="container mt-5" style="display: none;">
         <h2>Scratch Your Tickets</h2>
         <div id="ticket-cards" class="row mt-4">
-            <!-- Unscratched tickets will be dynamically inserted here -->
         </div>
         <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
     </div>
@@ -158,7 +166,6 @@
         <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="d-flex">
                 <div class="toast-body" id="toast-body">
-                    <!-- Toast message will be inserted here -->
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>

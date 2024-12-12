@@ -422,3 +422,167 @@ body {
 .profile-ticket-card.filtered-out {
     display: none;
 }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card i {
+    color: #2196F3;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #28a745;
+    margin-top: 10px;
+}
+.withdraw-section {
+    margin-bottom: 2rem;
+}
+
+.prize-balance {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #28a745;
+}
+
+#withdraw-btn {
+    width: 100%;
+    padding: 12px;
+}
+
+#withdraw-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    border-radius: 8px;
+    color: white;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+.notification.success {
+    background: #28a745;
+}
+
+.notification.error {
+    background: #dc3545;
+}
+
+.notification.warning {
+    background: #ffc107;
+    color: #333;
+}
+.user-profile-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+    transition: transform 0.3s ease;
+}
+
+.user-profile-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.avatar-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #4CAF50;
+    padding: 2px;
+}
+
+#user-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.profile-right {
+    flex: 1;
+}
+
+.wallet-address,
+.wallet-balance {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wallet-balance {
+    margin-top: 8px;
+}
+
+.label {
+    font-size: 0.8rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.wallet-balance .value {
+    color: #4CAF50;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .user-profile-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 16px;
+    }
+
+    .profile-right {
+        width: 100%;
+    }
+
+    .wallet-address,
+    .wallet-balance {
+        align-items: center;
+    }
+}
+
+    .user-info {
+        width: 100%;
+    }
+
+    .user-address {
+        font-size: 0.8rem;
+    }
