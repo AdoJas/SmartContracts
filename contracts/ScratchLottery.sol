@@ -72,15 +72,11 @@ contract ScratchLottery {
         )));
         uint256 prize = _calculatePrize(randomness);
 
-        if (prize > 0) {
-            require(totalPrizePool >= prize, "Insufficient prize pool");
-            totalPrizePool -= prize;
-            prizeBalances[user] += prize;
-            totalPrizeBalances += prize;
-        }
-
+        // Update logical balance without checking prize pool
         ticket.status = TicketStatus.Scratched;
         ticket.prize = prize;
+
+        prizeBalances[user] += prize;
 
         emit TicketScratched(user, ticketId, prize);
     }
@@ -89,12 +85,12 @@ contract ScratchLottery {
     function withdrawPrizes() external {
         uint256 balance = prizeBalances[msg.sender];
         require(balance > 0, "No prizes to withdraw");
+        require(address(this).balance >= balance, "Insufficient funds in the DApp");
 
         prizeBalances[msg.sender] = 0;
-        totalPrizeBalances -= balance;
 
         (bool success, ) = msg.sender.call{value: balance}("");
-        require(success, "Transfer failed.");
+        require(success, "Transfer failed");
 
         emit PrizeWithdrawn(msg.sender, balance);
     }
@@ -105,8 +101,8 @@ contract ScratchLottery {
     }
 
     // Function to get total prize pool
-    function getTotalPrizePool() external view returns (uint256) {
-        return totalPrizePool;
+    function getPrizePoolBalance() external view returns (uint256) {
+        return address(this).balance;
     }
 
     // Function to get user tickets
@@ -126,9 +122,9 @@ contract ScratchLottery {
     // Internal function to calculate prize based on randomness
     function _calculatePrize(uint256 randomness) internal pure returns (uint256) {
         uint256 outcome = randomness % 100;
-        if (outcome < 20) return 1 ether;
-        if (outcome < 50) return 0.1 ether;
-        if (outcome < 80) return 0.01 ether;
+        if (outcome < 10) return 1 ether;
+        if (outcome < 30) return 0.1 ether;
+        if (outcome < 60) return 0.01 ether;
         return 0;
     }
 }

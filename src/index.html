@@ -4,61 +4,170 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scratch Lottery DApp</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- Login Page -->
-    <div id="login-page" class="container text-center mt-5">
-        <h1>Welcome to Scratch Lottery</h1>
-        <button id="login-btn" class="btn btn-primary">Connect MetaMask</button>
-    </div>
-
-    <!-- User Profile Section -->
-    <div id="user-profile" class="container mt-3" style="display: none;">
-        <div class="d-flex align-items-center">
-            <img id="user-avatar" src="" alt="User Avatar" style="width: 50px; height: 50px; border-radius: 50%; margin-right: 10px;">
-            <div>
-                <p id="user-address" class="m-0"></p>
-                <p id="user-balance" class="m-0"></p>
+    <div id="login-page" class="container-fluid">
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-md-6 text-center login-container">
+                <div class="login-card">
+                    <i class="fas fa-ticket-alt fa-4x mb-4 text-primary"></i>
+                    <h1 class="mb-4">Welcome to Scratch Lottery</h1>
+                    <p class="lead mb-4">Connect your wallet to start playing!</p>
+                    <button id="login-btn" class="btn btn-primary btn-lg">
+                        <i class="fas fa-wallet me-2"></i>Connect MetaMask
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Main Menu -->
-    <div id="main-menu" class="container text-center mt-5" style="display: none;">
-        <h1>Scratch Lottery DApp</h1>
-        <button class="btn btn-secondary" onclick="navigateTo('buy-tickets')">Buy Tickets</button>
-        <button class="btn btn-secondary" onclick="navigateTo('profile')">Profile</button>
-        <button class="btn btn-secondary" onclick="navigateTo('scratch-tickets')">Scratch Tickets</button>
-    </div>
-
-    <!-- Buy Tickets -->
-    <div id="buy-tickets" class="container mt-5" style="display: none;">
-        <h1>Buy Tickets</h1>
-        <div class="form-group">
-            <label for="ticket-count">Number of Tickets:</label>
-            <input type="number" id="ticket-count" class="form-control" min="1" placeholder="Enter number of tickets">
+    <div id="main-menu" class="container mt-5" style="display: none;">
+        <h2>Main Menu</h2>
+        <div class="d-flex flex-wrap gap-3 mt-4">
+            <button class="btn btn-success btn-lg" onclick="navigateTo('buy-tickets')">Buy Tickets</button>
+            <button class="btn btn-info btn-lg" onclick="navigateTo('profile')">Profile</button>
+            <button class="btn btn-warning btn-lg" onclick="navigateTo('scratch-tickets')">Scratch Tickets</button>
+            <button class="btn btn-secondary btn-lg" onclick="navigateTo('statistics')">Statistics</button>
         </div>
-        <button class="btn btn-success mt-2" onclick="purchaseMultipleTickets()">Buy Tickets</button>
-        <button class="btn btn-secondary mt-2" onclick="navigateTo('main-menu')">Back</button>
+    </div>
+    
+     <div class="row">
+            <div class="col-12">
+                <div class="menu-grid">
+                    <div class="menu-card" onclick="navigateTo('buy-tickets')">
+                        <i class="fas fa-shopping-cart fa-2x mb-3"></i>
+                        <h3>Buy Tickets</h3>
+                        <p>Purchase new lottery tickets</p>
+                    </div>
+                    <div class="menu-card" onclick="navigateTo('scratch-tickets')">
+                        <i class="fas fa-ticket-alt fa-2x mb-3"></i>
+                        <h3>Scratch Tickets</h3>
+                        <p>View and scratch your tickets</p>
+                    </div>
+                    <div class="menu-card" onclick="navigateTo('profile')">
+                        <i class="fas fa-user fa-2x mb-3"></i>
+                        <h3>Profile</h3>
+                        <p>View your ticket history</p>
+                    </div>
+                    <div class="menu-card" onclick="navigateTo('statistics')">
+                        <i class="fas fa-chart-bar fa-2x mb-3"></i>
+                        <h3>Statistics</h3>
+                        <p>View lottery statistics</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Profile -->
+    <!-- Buy Tickets Page -->
+    <div id="buy-tickets" class="container mt-5" style="display: none;">
+        <h2>Buy Tickets</h2>
+        <div class="mt-4">
+            <button class="btn btn-primary" onclick="purchaseTicket()">Buy Single Ticket (0.01 ETH)</button>
+        </div>
+        <div class="mt-3">
+            <input type="number" id="ticket-count" class="form-control w-25 d-inline-block" placeholder="Number of Tickets">
+            <button class="btn btn-primary" onclick="purchaseMultipleTickets()">Buy Multiple Tickets</button>
+        </div>
+        <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- Profile Page -->
     <div id="profile" class="container mt-5" style="display: none;">
-        <h1>Your Tickets</h1>
-        <ul id="tickets-list" class="list-group"></ul>
-        <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
+        <h2>User Profile</h2>
+        <div id="user-profile" class="card mt-4" style="display: none;">
+            <div class="card-body d-flex align-items-center">
+                <img id="user-avatar" src="" alt="User Avatar" class="rounded-circle me-3" width="60" height="60">
+                <div>
+                    <p id="user-address" class="mb-1"></p>
+                    <p id="user-balance" class="mb-0"></p>
+                </div>
+            </div>
+        </div>
+        <div class="filter-controls mb-4">
+            <div class="filter-group">
+                <label>Status:</label>
+                <select id="status-filter" class="form-select">
+                    <option value="all">All Tickets</option>
+                    <option value="unscratched">Unscratched</option>
+                    <option value="scratched">Scratched</option>
+                    <option value="won">Won Prize</option>
+                    <option value="no-prize">No Prize</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Sort By:</label>
+                <select id="sort-filter" class="form-select">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="highest">Highest Prize</option>
+                    <option value="lowest">Lowest Prize</option>
+                </select>
+            </div>
+        </div>
+        <div id="profile-tickets" class="row mt-4">
+            <!-- User tickets will be dynamically inserted here -->
+        </div>
+        <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
     </div>
 
-    <!-- Scratch Tickets -->
+    <!-- Scratch Tickets Page -->
     <div id="scratch-tickets" class="container mt-5" style="display: none;">
-        <h1 class="text-center">Scratch Tickets</h1>
-        <div id="ticket-cards" class="row"></div>
-        <button class="btn btn-secondary mt-3" onclick="navigateTo('main-menu')">Back</button>
+        <h2>Scratch Your Tickets</h2>
+        <div id="ticket-cards" class="row mt-4">
+            <!-- Unscratched tickets will be dynamically inserted here -->
+        </div>
+        <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <!-- Statistics Page -->
+    <div id="statistics" class="container mt-5" style="display: none;">
+        <h2>Statistics</h2>
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <canvas id="winningsChart"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="ticketBreakdownChart"></canvas>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <h5>Total Tickets: <span id="totalTickets">0</span></h5>
+            </div>
+            <div class="col-md-4">
+                <h5>Total Prize Pool: <span id="totalPrizePool">0 ETH</span></h5>
+            </div>
+            <div class="col-md-4">
+                <h5>Your Tickets Purchased: <span id="userTicketsPurchased">0</span></h5>
+            </div>
+            <div class="col-md-4">
+                <h5>Your Winnings: <span id="userWinnings">0 ETH</span></h5>
+            </div>
+        </div>
+        <button class="btn btn-secondary mt-4" onclick="navigateTo('main-menu')">Back to Main Menu</button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-body">
+                    <!-- Toast message will be inserted here -->
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="lottery.js"></script>
 </body>
 </html>

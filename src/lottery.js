@@ -1,6 +1,13 @@
+// lottery.js
+
 let web3;
 let lotteryContract;
 
+let ticketsData = [];
+// Replace with your actual relayer address
+const relayerAddress = "0x456F34EF88Df11A5FB3cAB282BAd8dbf1ff7E946";
+
+// Replace with your actual contract ABI
 const lotteryABI = [
   {
     "inputs": [
@@ -289,7 +296,7 @@ const lotteryABI = [
   },
   {
     "inputs": [],
-    "name": "getTotalPrizePool",
+    "name": "getPrizePoolBalance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -323,42 +330,85 @@ const lotteryABI = [
   }
 ];
 
-const contractAddress = "0x415BA39c9215F20B17E14f888276076C5c69aa01";
+// Replace with your actual contract address
+const contractAddress = "0xC0ff1D219A3116ef287c983514afEDD4E9aea5bC";
 
 async function initWeb3() {
     if (window.ethereum) {
         web3 = new Web3(window.ethereum);
-        await window.ethereum.enable();
+        try {
+            await window.ethereum.request({ method: "eth_requestAccounts" });
 
-        lotteryContract = new web3.eth.Contract(lotteryABI, contractAddress);
-        console.log("Contract initialized:", lotteryContract);
+            lotteryContract = new web3.eth.Contract(lotteryABI, contractAddress);
+            console.log("Contract initialized:", lotteryContract);
+            window.ethereum.on("accountsChanged", async (accounts) => {
+                try {
+                    if (accounts.length > 0) {
+                        console.log("MetaMask account changed:", accounts[0]);
+                        localStorage.setItem("userAddress", accounts[0]);
+                        await connectWallet();
+                        await loadTickets();
+                        await loadUnscratchedTickets();
+                    } else {
+                        console.log("No accounts connected.");
+                        document.getElementById("user-profile").style.display = "none";
+                        document.getElementById("main-menu").style.display = "none";
+                        document.getElementById("profile").style.display = "none";
+                        document.getElementById("scratch-tickets").style.display = "none";
+                        document.getElementById("statistics").style.display = "none";
+                    }
+                } catch (error) {
+                    console.error("Error handling account change:", error);
+                }
+            });
+        } catch (error) {
+            console.error("User denied account access", error);
+            alert("Please allow access to MetaMask to use this DApp.");
+        }
     } else {
         alert("Please install MetaMask!");
     }
 }
 
 async function connectWallet() {
-    if (window.ethereum) {
-        try {
-            const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-            const userAddress = accounts[0];
-            localStorage.setItem("userAddress", userAddress);
+  console.log("Connect Wallet button clicked");
 
-            const balance = await web3.eth.getBalance(userAddress);
-            const balanceInEth = web3.utils.fromWei(balance, "ether");
+  if (window.ethereum) {
+      try {
+          const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+          console.log("Accounts retrieved:", accounts);
 
-            document.getElementById("user-avatar").src = `https://avatars.dicebear.com/api/identicon/${userAddress}.svg`;
-            document.getElementById("user-address").textContent = `Address: ${userAddress}`;
-            document.getElementById("user-balance").textContent = `Balance: ${balanceInEth} ETH`;
-            document.getElementById("user-profile").style.display = "block";
+          if (accounts.length === 0) {
+              console.warn("No accounts found.");
+              alert("No accounts found. Please check your MetaMask.");
+              return;
+          }
 
-            loadMainMenu();
-        } catch (error) {
-            alert("Failed to connect MetaMask. Please try again.");
-        }
-    } else {
-        alert("MetaMask is not installed. Please install MetaMask to use this DApp.");
-    }
+          const userAddress = accounts[0];
+          console.log("User Address:", userAddress);
+          localStorage.setItem("userAddress", userAddress);
+
+          const balance = await web3.eth.getBalance(userAddress);
+          const balanceInEth = web3.utils.fromWei(balance, "ether");
+          console.log("User Balance:", balanceInEth, "ETH");
+
+          document.getElementById("user-avatar").src = `https://avatars.dicebear.com/api/identicon/${userAddress}.svg`;
+          document.getElementById("user-address").textContent = `Address: ${userAddress}`;
+          document.getElementById("user-balance").textContent = `Balance: ${balanceInEth} ETH`;
+          document.getElementById("user-profile").style.display = "block";
+
+          console.log("Hiding login page and showing main menu");
+          document.getElementById("login-page").style.display = "none"; 
+          document.getElementById("main-menu").style.display = "block";
+          console.log("Main menu should now be visible");
+      } catch (error) {
+          console.error("Error connecting MetaMask:", error);
+          alert("Failed to connect MetaMask. Please try again.");
+      }
+  } else {
+      console.error("MetaMask is not installed.");
+      alert("MetaMask is not installed. Please install MetaMask to use this DApp.");
+  }
 }
 
 async function purchaseTicket() {
@@ -372,6 +422,8 @@ async function purchaseTicket() {
             value: web3.utils.toWei("0.01", "ether"),
         });
         alert("Ticket purchased successfully!");
+        await loadTickets();
+        await loadUnscratchedTickets();
     } catch (error) {
         console.error("Error purchasing ticket:", error); 
         alert("Error purchasing ticket: " + error.message);
@@ -394,123 +446,397 @@ async function purchaseMultipleTickets() {
             value: totalCost,
         });
         alert(`${numberOfTickets} tickets purchased successfully!`);
+        await loadTickets();
+        await loadUnscratchedTickets();
     } catch (error) {
         console.error("Error purchasing tickets:", error);
         alert("Error purchasing tickets. Check console for details.");
     }
 }
 
-
-
 async function loadTickets() {
-    const userAddress = localStorage.getItem("userAddress");
-    const ticketsList = document.getElementById("ticket-list");
-    ticketsList.innerHTML = "";
+  const userAddress = localStorage.getItem("userAddress");
+  const profileTickets = document.getElementById("profile-tickets");
+  
+  // Show loading state
+  profileTickets.innerHTML = `
+      <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading your tickets...</p>
+      </div>
+  `;
 
-    const ticketCount = await lotteryContract.methods.ticketCounter().call();
-    for (let i = 1; i <= ticketCount; i++) {
-        const ticket = await lotteryContract.methods.tickets(i).call();
-        if (ticket.owner.toLowerCase() === userAddress.toLowerCase()) {
-            const ticketElement = document.createElement("li");
-            ticketElement.classList.add("list-group-item");
+  try {
+      const ticketIds = await lotteryContract.methods.getUserTickets(userAddress).call();
+      ticketsData = []; // Reset tickets data
 
-            ticketElement.textContent = `Ticket ID: ${i}, Status: ${
-                ticket.status == 0 ? "Unscratched" : "Scratched"
-            }, Prize: ${web3.utils.fromWei(ticket.prize, "ether")} ETH`;
-            
-            ticketsList.appendChild(ticketElement);
-        }
-    }
+      if (ticketIds.length === 0) {
+          profileTickets.innerHTML = `
+              <div class="empty-state">
+                  <i class="fas fa-ticket-alt fa-3x mb-3"></i>
+                  <h3>No Tickets Found</h3>
+                  <p>Start your journey by purchasing tickets!</p>
+                  <button onclick="navigateTo('buy-tickets')" class="btn btn-primary mt-3">
+                      Buy Tickets
+                  </button>
+              </div>
+          `;
+          return;
+      }
+
+      // Build tickets data array
+      for (const ticketId of ticketIds) {
+          const ticket = await lotteryContract.methods.tickets(ticketId).call();
+          const prizeInEth = web3.utils.fromWei(ticket.prize, "ether");
+          
+          ticketsData.push({
+              id: ticketId,
+              status: parseInt(ticket.status),
+              prize: parseFloat(prizeInEth),
+              purchaseDate: Date.now() // Using current timestamp as placeholder
+          });
+      }
+
+      // Create filter controls if they don't exist
+      if (!document.querySelector('.filter-controls')) {
+          const filterControls = document.createElement('div');
+          filterControls.className = 'filter-controls';
+          filterControls.innerHTML = `
+              <div class="filter-group">
+                  <select id="status-filter" class="form-select">
+                      <option value="all">All Tickets</option>
+                      <option value="unscratched">Unscratched</option>
+                      <option value="scratched">Scratched</option>
+                      <option value="won">Won Prize</option>
+                      <option value="no-prize">No Prize</option>
+                  </select>
+              </div>
+              <div class="filter-group">
+                  <select id="sort-filter" class="form-select">
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                      <option value="highest">Highest Prize</option>
+                      <option value="lowest">Lowest Prize</option>
+                  </select>
+              </div>
+          `;
+          profileTickets.insertBefore(filterControls, profileTickets.firstChild);
+      }
+
+      // Create tickets container
+      profileTickets.innerHTML += '<div class="profile-tickets"></div>';
+      
+      // Initial render
+      renderTickets(ticketsData);
+      setupFilters();
+
+  } catch (error) {
+      console.error("Error loading tickets:", error);
+      profileTickets.innerHTML = `
+          <div class="error-state">
+              <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+              <h3>Failed to Load Tickets</h3>
+              <p>Please try again later</p>
+          </div>
+      `;
+  }
+}
+function setupFilters() {
+  const statusFilter = document.getElementById('status-filter');
+  const sortFilter = document.getElementById('sort-filter');
+
+  statusFilter.addEventListener('change', () => applyFilters());
+  sortFilter.addEventListener('change', () => applyFilters());
+}
+
+function applyFilters() {
+  const statusFilter = document.getElementById('status-filter').value;
+  const sortFilter = document.getElementById('sort-filter').value;
+
+  let filteredTickets = [...ticketsData];
+
+  // Apply status filter
+  switch(statusFilter) {
+      case 'unscratched':
+          filteredTickets = filteredTickets.filter(t => t.status === 0);
+          break;
+      case 'scratched':
+          filteredTickets = filteredTickets.filter(t => t.status === 1);
+          break;
+      case 'won':
+          filteredTickets = filteredTickets.filter(t => t.status === 1 && t.prize > 0);
+          break;
+      case 'no-prize':
+          filteredTickets = filteredTickets.filter(t => t.status === 1 && t.prize === 0);
+          break;
+  }
+
+  // Apply sort filter
+  switch(sortFilter) {
+      case 'newest':
+          filteredTickets.sort((a, b) => b.purchaseDate - a.purchaseDate);
+          break;
+      case 'oldest':
+          filteredTickets.sort((a, b) => a.purchaseDate - b.purchaseDate);
+          break;
+      case 'highest':
+          filteredTickets.sort((a, b) => b.prize - a.prize);
+          break;
+      case 'lowest':
+          filteredTickets.sort((a, b) => a.prize - b.prize);
+          break;
+  }
+
+  renderTickets(filteredTickets);
+}
+
+function renderTickets(tickets) {
+  const ticketsContainer = document.querySelector('.profile-tickets');
+  ticketsContainer.innerHTML = '';
+
+  if (tickets.length === 0) {
+      ticketsContainer.innerHTML = `
+          <div class="empty-state">
+              <i class="fas fa-ticket-alt fa-3x mb-3"></i>
+              <h3>No Matching Tickets</h3>
+              <p>Try adjusting your filters</p>
+          </div>
+      `;
+      return;
+  }
+
+  tickets.forEach(ticket => {
+      const ticketElement = document.createElement('div');
+      ticketElement.className = 'profile-ticket-card';
+      
+      let statusBadge;
+      if (ticket.status === 0) {
+          statusBadge = '<span class="ticket-badge badge-unscratched">Unscratched</span>';
+      } else if (ticket.prize > 0) {
+          statusBadge = '<span class="ticket-badge badge-scratched">Won Prize</span>';
+      } else {
+          statusBadge = '<span class="ticket-badge badge-no-prize">No Prize</span>';
+      }
+
+      ticketElement.innerHTML = `
+          <div class="ticket-header">
+              <span class="ticket-id">#${ticket.id}</span>
+              ${statusBadge}
+          </div>
+          <div class="ticket-prize">
+              <div class="prize-amount">${ticket.status === 0 ? '?' : ticket.prize}</div>
+              <div class="prize-label">ETH</div>
+          </div>
+          <div class="ticket-footer">
+              <div class="ticket-date">
+                  <i class="far fa-clock"></i>
+                  <span>Purchased on ${new Date(ticket.purchaseDate).toLocaleDateString()}</span>
+              </div>
+          </div>
+      `;
+
+      ticketsContainer.appendChild(ticketElement);
+  });
 }
 
 async function loadUnscratchedTickets() {
-    console.log("Debug: loadUnscratchedTickets called"); 
+  const userAddress = localStorage.getItem("userAddress");
+  const ticketCards = document.getElementById("ticket-cards");
+  
+  ticketCards.innerHTML = `
+      <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading your tickets...</p>
+      </div>
+  `;
 
-    const userAddress = localStorage.getItem("userAddress");
-    console.log("Debug: User Address from LocalStorage:", userAddress); 
+  try {
+      const ticketCount = await lotteryContract.methods.ticketCounter().call();
+      ticketCards.innerHTML = '';
+      let hasUnscratched = false;
 
-    const ticketCards = document.getElementById("ticket-cards");
-    if (!ticketCards) {
-        console.error("Error: 'ticket-cards' container not found in DOM."); 
-        return;
-    }
-    ticketCards.innerHTML = "";
+      for (let i = 1; i <= ticketCount; i++) {
+          const ticket = await lotteryContract.methods.tickets(i).call();
 
-    const ticketCount = await lotteryContract.methods.ticketCounter().call();
-    console.log("Debug: Total Tickets in Contract:", ticketCount); 
+          if (ticket.owner.toLowerCase() === userAddress.toLowerCase() && ticket.status == 0) {
+              hasUnscratched = true;
+              const card = document.createElement("div");
+              card.className = "ticket-card";
+              card.innerHTML = `
+                  <div class="ticket-info">
+                      <h5>Ticket #${i}</h5>
+                      <p class="status">Status: Unscratched</p>
+                  </div>
+                  <div class="scratch-container">
+                      <div class="prize-div">
+                          <span class="prize-amount">???</span>
+                          <span class="eth-label">ETH</span>
+                      </div>
+                      <canvas class="scratch-area"></canvas>
+                  </div>
+                  <button class="scratch-button">
+                      <span class="default-text">
+                          <i class="fas fa-hand-pointer"></i> SCRATCH
+                      </span>
+                      <span class="loading-text">
+                          <div class="spinner-small"></div> Processing...
+                      </span>
+                  </button>
+              `;
 
-    for (let i = 1; i <= ticketCount; i++) {
-        const ticket = await lotteryContract.methods.tickets(i).call();
-        console.log(`Debug: Ticket ${i}:`, ticket); 
+              const scratchButton = card.querySelector(".scratch-button");
+              scratchButton.addEventListener("click", () => handleScratch(i, card));
 
-        if (ticket.owner.toLowerCase() === userAddress.toLowerCase()) {
-            console.log(`Debug: Ticket ${i} belongs to user`); 
+              ticketCards.appendChild(card);
+          }
+      }
 
-            if (ticket.status == 0) { 
-                console.log(`Debug: Ticket ${i} is unscratched`); 
+      if (!hasUnscratched) {
+          ticketCards.innerHTML = `
+              <div class="empty-state">
+                  <i class="fas fa-ticket-alt"></i>
+                  <h3>No Unscratched Tickets</h3>
+                  <p>Purchase tickets to start playing!</p>
+                  <button onclick="navigateTo('buy-tickets')" class="btn-primary">
+                      Buy Tickets
+                  </button>
+              </div>
+          `;
+      }
+  } catch (error) {
+      console.error("Error loading tickets:", error);
+      ticketCards.innerHTML = `
+          <div class="error-state">
+              <i class="fas fa-exclamation-circle"></i>
+              <h3>Failed to Load Tickets</h3>
+              <p>Please try again later</p>
+          </div>
+      `;
+  }
+}
+function initializeScratchArea(cardElement, prizeInEth) {
+  const canvas = cardElement.querySelector(".scratch-area");
+  const ctx = canvas.getContext("2d");
+  const container = cardElement.querySelector(".scratch-container");
 
-                const card = document.createElement("div");
-                card.className = "col-md-4 ticket-card";
-                card.setAttribute("data-ticket-id", i); 
-                card.innerHTML = `
-                    <div class="ticket-info">
-                        <h5>Ticket ID: ${i}</h5>
-                        <p>Status: Unscratched</p>
-                    </div>
-                    <button class="scratch-button" onclick="scratchTicket(${i})">Scratch</button>
-                `;
-                ticketCards.appendChild(card);
-            }
-        }
-    }
+  canvas.width = container.offsetWidth;
+  canvas.height = container.offsetHeight;
+  canvas.style.display = "block";
 
-    if (ticketCards.innerHTML === "") {
-        console.log("Debug: No unscratched tickets to display"); 
-    }
+  // Fill with scratch pattern
+  ctx.fillStyle = "#C0C0C0";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let isDrawing = false;
+  let lastX = 0;
+  let lastY = 0;
+
+  function draw(e) {
+      if (!isDrawing) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = 40;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      [lastX, lastY] = [x, y];
+
+      checkScratchCompletion(ctx, canvas, cardElement);
+  }
+
+  canvas.addEventListener("mousedown", (e) => {
+      isDrawing = true;
+      [lastX, lastY] = [e.offsetX, e.offsetY];
+  });
+
+  canvas.addEventListener("mousemove", draw);
+  canvas.addEventListener("mouseup", () => isDrawing = false);
+  canvas.addEventListener("mouseout", () => isDrawing = false);
+
+  // Touch events
+  canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      [lastX, lastY] = [touch.clientX - rect.left, touch.clientY - rect.top];
+  });
+
+  canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      draw(touch);
+  });
+
+  canvas.addEventListener("touchend", () => isDrawing = false);
 }
 
+function checkScratchCompletion(ctx, canvas, cardElement) {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  let scratched = 0;
 
+  for (let i = 3; i < pixels.length; i += 4) {
+      if (pixels[i] === 0) scratched++;
+  }
 
-async function scratchTicket(ticketId) {
-    console.log(`Debug: scratchTicket called for Ticket ID: ${ticketId}`); 
-    const clientSeed = generateSecureClientSeed();
-    const relayerAddress = "0x456F34EF88Df11A5FB3cAB282BAd8dbf1ff7E946"; 
-    const button = document.querySelector(`.scratch-button[onclick="scratchTicket(${ticketId})"]`);
-    if (!button) {
-        console.error(`Error: Button for Ticket ID ${ticketId} not found in DOM.`); 
-        return;
-    }
+  const scratchedPercentage = (scratched / (pixels.length / 4)) * 100;
 
-    button.disabled = true;
-
-    try {
-        const accounts = await web3.eth.getAccounts();
-        console.log("Debug: Accounts fetched from MetaMask:", accounts); 
-
-        console.log(`Debug: Sending transaction to scratch Ticket ID ${ticketId}`); 
-        await lotteryContract.methods.scratchTicketMeta(ticketId, accounts[0], clientSeed).send({ from: relayerAddress });
-
-        const ticket = await lotteryContract.methods.tickets(ticketId).call();
-        console.log(`Debug: Ticket ${ticketId} after scratch:`, ticket); 
-
-        const card = button.parentElement;
-
-        card.innerHTML = `
-            <div class="ticket-info">
-                <h5>Ticket ID: ${ticketId}</h5>
-                <p>Status: Scratched</p>
-                <p>Prize: ${web3.utils.fromWei(ticket.prize, "ether")} ETH</p>
-            </div>
-        `;
-
-        initScratchArea(ticketId, ticket.prize);
-
-    } catch (error) {
-        console.error("Error scratching ticket:", error); 
-        button.disabled = false; 
-    }
+  if (scratchedPercentage > 50) {
+      canvas.style.display = "none";
+      cardElement.classList.add("revealed");
+  }
 }
 
+function showNotification(message, type) {
+  const notification = document.createElement("div");
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+}
+async function handleScratch(ticketId, cardElement) {
+  const scratchButton = cardElement.querySelector(".scratch-button");
+  scratchButton.classList.add("loading");
+  
+  try {
+      const clientSeed = generateSecureClientSeed();
+      const userAddress = localStorage.getItem("userAddress");
+
+      await lotteryContract.methods
+          .scratchTicketMeta(ticketId, userAddress, clientSeed)
+          .send({ from: relayerAddress, gas: 500000 });
+
+      const updatedTicket = await lotteryContract.methods.tickets(ticketId).call();
+      const prizeInEth = web3.utils.fromWei(updatedTicket.prize, "ether");
+
+      // Update status and initialize scratch area
+      cardElement.querySelector(".status").textContent = "Status: Scratched";
+      cardElement.querySelector(".prize-amount").textContent = prizeInEth;
+      
+      // Hide button and show scratch area
+      scratchButton.style.display = "none";
+      initializeScratchArea(cardElement, prizeInEth);
+      
+  } catch (error) {
+      console.error("Error scratching ticket:", error);
+      scratchButton.classList.remove("loading");
+      showNotification("Failed to scratch ticket. Please try again.", "error");
+  }
+}
+
+function generateSecureClientSeed() {
+    const array = new Uint32Array(4);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, dec => dec.toString(36)).join('');
+}
 
 function navigateTo(page) {
     document.getElementById("login-page").style.display = "none";
@@ -518,103 +844,153 @@ function navigateTo(page) {
     document.getElementById("buy-tickets").style.display = "none";
     document.getElementById("profile").style.display = "none";
     document.getElementById("scratch-tickets").style.display = "none";
+    document.getElementById("statistics").style.display = "none";
 
-    document.getElementById(page).style.display = "block";
+    const selectedPage = document.getElementById(page);
+    selectedPage.style.display = "block";
 
     if (page === "profile") {
-        loadTickets();
+        setTimeout(loadTickets, 0); 
     } else if (page === "scratch-tickets") {
         loadUnscratchedTickets();
+    } else if (page === "statistics") {
+        loadStatisticsData();
     }
 }
 
 function loadMainMenu() {
-    document.getElementById("login-page").style.display = "none";
-    document.getElementById("main-menu").style.display = "block";
+  console.log("Entering loadMainMenu...");
+  document.getElementById("login-page").style.display = "none";
+  document.getElementById("main-menu").style.display = "block";
+  console.log("Login page hidden, main menu displayed.");
 }
 
-function generateSecureClientSeed() {
-    return crypto.getRandomValues(new Uint32Array(4))
-        .reduce((acc, val) => acc + val.toString(36), '');
+async function loadStatistics() {
+  const statsContainer = document.getElementById("statistics");
+  
+  // Show loading state
+  statsContainer.innerHTML = `
+      <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading statistics...</p>
+      </div>
+  `;
+
+  try {
+      // Fetch statistics from contract
+      const totalTickets = await lotteryContract.methods.getTotalTickets().call();
+      const prizePool = await lotteryContract.methods.getPrizePoolBalance().call();
+      const prizePoolInEth = web3.utils.fromWei(prizePool, "ether");
+
+      // Calculate other stats
+      const scratchedTickets = await countScratchedTickets();
+      const totalPrizesPaid = await lotteryContract.methods.totalPrizeBalances().call();
+      const totalPrizesPaidInEth = web3.utils.fromWei(totalPrizesPaid, "ether");
+
+      // Display statistics
+      statsContainer.innerHTML = `
+          <div class="stats-grid">
+              <div class="stat-card">
+                  <i class="fas fa-ticket-alt fa-2x mb-3"></i>
+                  <h3>Total Tickets</h3>
+                  <div class="stat-value">${totalTickets}</div>
+              </div>
+              <div class="stat-card">
+                  <i class="fas fa-hand-holding-usd fa-2x mb-3"></i>
+                  <h3>Prize Pool</h3>
+                  <div class="stat-value">${prizePoolInEth} ETH</div>
+              </div>
+              <div class="stat-card">
+                  <i class="fas fa-check-circle fa-2x mb-3"></i>
+                  <h3>Scratched Tickets</h3>
+                  <div class="stat-value">${scratchedTickets}</div>
+              </div>
+              <div class="stat-card">
+                  <i class="fas fa-coins fa-2x mb-3"></i>
+                  <h3>Total Prizes Paid</h3>
+                  <div class="stat-value">${totalPrizesPaidInEth} ETH</div>
+              </div>
+          </div>
+      `;
+
+  } catch (error) {
+      console.error("Error loading statistics:", error);
+      statsContainer.innerHTML = `
+          <div class="error-state">
+              <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+              <h3>Failed to Load Statistics</h3>
+              <p>Please try again later</p>
+          </div>
+      `;
+  }
 }
 
-
-
-function initScratchArea(ticketId, prize) {
-  const card = document.querySelector(`.ticket-card[data-ticket-id="${ticketId}"]`);
-  if (!card) {
-      console.error(`Card for Ticket ID ${ticketId} not found.`);
-      return;
+async function countScratchedTickets() {
+  const totalTickets = await lotteryContract.methods.ticketCounter().call();
+  let scratched = 0;
+  
+  for (let i = 1; i <= totalTickets; i++) {
+      const ticket = await lotteryContract.methods.tickets(i).call();
+      if (ticket.status === "1") scratched++;
   }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = 200;
-  canvas.height = 100;
-  canvas.className = "scratch-area";
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = "#808080";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.font = "20px Arial";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.textAlign = "center";
-  ctx.fillText("Scratch Here", canvas.width / 2, canvas.height / 2);
-
-  ctx.globalCompositeOperation = "destination-out";
-
-  let isDrawing = false;
-  canvas.onmousedown = () => (isDrawing = true);
-  canvas.onmouseup = () => (isDrawing = false);
-  canvas.onmousemove = (e) => {
-      if (!isDrawing) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      ctx.beginPath();
-      ctx.arc(x, y, 15, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (isMostlyCleared(ctx, canvas)) {
-          canvas.style.pointerEvents = "none"; 
-          displayPrize(prize, card); 
-      }
-  };
-
-  card.appendChild(canvas);
-
-  let prizeMessage = card.querySelector(".prize-message");
-  if (!prizeMessage) {
-      prizeMessage = document.createElement("p");
-      prizeMessage.className = "prize-message";
-      prizeMessage.textContent = ""; 
-      card.appendChild(prizeMessage);
-  }
+  
+  return scratched;
 }
 
-function isMostlyCleared(ctx, canvas) {
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  let clearedPixels = 0;
-
-  for (let i = 3; i < imageData.length; i += 4) {
-      if (imageData[i] === 0) clearedPixels++;
-  }
-
-  return clearedPixels / (canvas.width * canvas.height) > 0.9; 
+function renderWinningsChart(userWinnings) {
+    const ctx = document.getElementById("winningsChart").getContext("2d");
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["Total Winnings"],
+            datasets: [{
+                label: "Winnings (ETH)",
+                data: [userWinnings],
+                backgroundColor: "rgba(75, 192, 192, 0.2)",
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 1,
+            }],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                },
+            },
+        },
+    });
 }
 
-function displayPrize(prize, card) {
-  const prizeMessage = card.querySelector(".prize-message");
-  if (prizeMessage) {
-      prizeMessage.textContent = prize > 0
-          ? `Congratulations! You won ${web3.utils.fromWei(prize.toString(), "ether")} ETH!`
-          : "Better luck next time!";
-      prizeMessage.style.color = prize > 0 ? "green" : "red";
-  } else {
-      console.error("Prize message element not found.");
-  }
+function renderTicketBreakdownChart(scratched, unscratched, won) {
+    const ctx = document.getElementById("ticketBreakdownChart").getContext("2d");
+    new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: ["Scratched", "Unscratched", "Won"],
+            datasets: [{
+                data: [scratched, unscratched, won],
+                backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
+            }],
+        },
+        options: {
+            responsive: true,
+        },
+    });
+}
+
+async function updateWinningsCounter() {
+    const winningsCounter = document.getElementById('winningsCounter');
+    try {
+        const totalPrizePool = await lotteryContract.methods.getTotalPrizePool().call();
+        const totalPrizePoolEth = web3.utils.fromWei(totalPrizePool, 'ether');
+        winningsCounter.textContent = `${totalPrizePoolEth} ETH`;
+    } catch (error) {
+        console.error("Error fetching total prize pool:", error);
+        winningsCounter.textContent = "Error fetching data";
+    }
 }
 
 window.addEventListener("load", initWeb3);
 document.getElementById("login-btn").addEventListener("click", connectWallet);
+//document.getElementById("filter-tickets").addEventListener("change", loadTickets);
