@@ -94,3 +94,17 @@ function _calculatePrize(uint256 randomness) internal pure returns (uint256) {
 3. **Security**: Smart contract-based fund management
 4. **UX**: Gas-free scratching via relayer
 5. **Automation**: Instant prize distribution
+
+## Some pictures:
+1. Initial screen ![image](https://github.com/user-attachments/assets/b7390ed0-a989-4487-b606-537d184cff37)
+2. User profile screen ![image](https://github.com/user-attachments/assets/22f01e93-89da-4efb-89b5-2a8880854a84)
+3. Buying a ticket ![image](https://github.com/user-attachments/assets/a0d27418-550f-4a73-9869-cd897dc6be49)
+4. Confirming ticket purchase ![image](https://github.com/user-attachments/assets/2af09fcf-9c47-400d-8d56-36e9d7261756)
+5. Scratch a ticket ![image](https://github.com/user-attachments/assets/a0904fac-73f7-4550-93a1-050364b64227)
+6. Relaying ticket scratching to another account ![image](https://github.com/user-attachments/assets/f7021c14-baa6-45f3-b29c-cba9c787e7e3)
+7. Personal statistics ![image](https://github.com/user-attachments/assets/177fbcee-49a2-4e02-b060-bec8c8ee21c5)
+
+
+
+
+
